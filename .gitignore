@@ -1,1 +1,21 @@
+# Python environments and generated files
+.venv/
 venv/
+__pycache__/
+*.py[cod]
+
+# Local ACDC data (downloaded separately)
+dataset/images/
+dataset/labels/
+dataset/gt/
+dataset/gt_detection/
+
+# Training outputs and model weights
+runs/
+**/runs/
+*.pt
+
+# Local-only files
+.env
+.env.*
+/License.pdf
