@@ -9,6 +9,7 @@ dataset/images/
 dataset/labels/
 dataset/gt/
 dataset/gt_detection/
+dataset/processed/
 
 # Training outputs and model weights
 runs/

@@ -1,15 +1,17 @@
 # ETH AI Object Detection
 
-An early-stage Python project for exploring object detection in adverse weather
-conditions using the ACDC dataset and YOLOv8.
+Train an object detector to recognize road users in adverse-weather images
+using the ACDC dataset and YOLOv8. The target is to detect objects such as
+people, cars, and other road users in fog, night, rain, and snow—not to classify
+the weather itself.
 
 ## Project status
 
-- `main.py` currently opens a CustomTkinter window; image selection and object
-  detection are not implemented yet.
-- `dataset/` contains initial COCO-to-YOLO conversion and YOLO training scripts.
-- ACDC images and annotations, pretrained weights, and training outputs are
-  local assets and are not committed to this repository.
+- The ACDC COCO-to-YOLO conversion and YOLO training steps are implemented.
+- `main.py` is still a UI prototype; image selection and inference are not
+  implemented yet.
+- ACDC data, converted images, model weights, and training runs are local and
+  are not committed to Git.
 
 ## Setup
 
@@ -34,13 +36,38 @@ the [official ACDC website](https://acdc.vision.ee.ethz.ch) and follow its
 license and citation requirements. The source dataset documentation and
 license are kept in [`dataset/`](dataset/).
 
-The local data layout and class mapping still need to be finalized before
-training is reproducible. `dataset/data.yaml` currently expects
-`dataset/images/train` and `dataset/images/val`; those folders are intentionally
-not included in Git. Do not commit downloaded data or generated training runs.
+The ACDC directory supplied to the scripts must contain:
 
-## Next development milestone
+```text
+<acdc-root>/
+  gt_detection/{fog,night,rain,snow}/
+  rgb_anon/{fog,night,rain,snow}/{train,val}/
+```
 
-Define the intended detection classes and a reproducible ACDC-to-YOLO dataset
-layout, then validate conversion and training against a small sample. Once that
-pipeline is verified, connect the UI to a trained model for image inference.
+Convert the four weather conditions into one YOLO dataset. The converter reads
+the category IDs and names from the ACDC annotations, checks that they agree
+across conditions and splits, and writes the matching `data.yaml`:
+
+```powershell
+python dataset/run_conversion.py --acdc-root "D:\datasets\ACDC"
+```
+
+The converted dataset is written to `dataset/processed/` by default and
+contains separate train/validation images and labels. Original data and
+generated files are ignored by Git. To use another output directory, pass
+`--output-dir`.
+
+Train the nano model for the default 50 epochs at 640 pixels:
+
+```powershell
+python dataset/yolo_train.py
+```
+
+Set `--dataset-dir`, `--model`, `--epochs`, and/or `--imgsz` to override the
+defaults. Training results are saved under `dataset/processed/runs/`.
+
+## Next development step
+
+Run conversion and training against the locally downloaded ACDC data, review
+validation metrics and predictions, then use the resulting best checkpoint to
+implement image inference in the UI.
