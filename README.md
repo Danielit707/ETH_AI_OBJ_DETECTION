@@ -1,5 +1,9 @@
 # ETH AI Object Detection
 
+[![CI](https://github.com/Danielit707/ETH_AI_OBJ_DETECTION/actions/workflows/ci.yml/badge.svg)](https://github.com/Danielit707/ETH_AI_OBJ_DETECTION/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: ACDC Non-Commercial](https://img.shields.io/badge/license-ACDC%20Non--Commercial-red.svg)](License.pdf)
+
 Train an object detector to recognize road users in adverse-weather images
 using the ACDC dataset and YOLOv8. The target is to detect objects such as
 people, cars, and other road users in fog, night, rain, and snow—not to classify
@@ -170,3 +174,9 @@ layers. Training results are saved under `dataset/processed/runs/`.
    visually, not just as JSON.
 3. Improve the baseline using per-class metrics and failure analysis before
    describing it as production-ready.
+
+## License
+
+The ACDC dataset and trained model weights are subject to the
+[ACDC License](License.pdf) (non-commercial use). The source code in this
+repository is provided for research and educational purposes.

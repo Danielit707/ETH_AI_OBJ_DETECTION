@@ -1,5 +1,5 @@
-fastapi
-uvicorn[standard]
-python-multipart
-pillow
-ultralytics
+fastapi>=0.100
+uvicorn[standard]>=0.22
+python-multipart>=0.0.6
+pillow>=10.0
+ultralytics>=8.0
