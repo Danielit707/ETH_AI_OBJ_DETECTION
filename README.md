@@ -55,6 +55,12 @@ then saves `best.pt`, the training metrics, and the generated class config to
 `My Drive/datasets/ACDC/training_output/`. The large dataset archives do not
 need to be copied into this Git repository.
 
+Training output is streamed into the notebook. At each completed epoch, the
+latest and best checkpoints plus metrics are synchronized to
+`training_output/checkpoints/`. If the Colab runtime disconnects mid-training,
+rerun the notebook; after dataset conversion, its training cell resumes from
+the last checkpoint saved to Drive.
+
 ### Train locally
 
 The ACDC directory supplied to the scripts must contain:

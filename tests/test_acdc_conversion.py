@@ -1,9 +1,11 @@
 import json
 import tempfile
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 
 from dataset.convert_coco_to_yolo import convert_acdc_dataset, convert_bbox_coco_to_yolo
+from dataset.yolo_train import _sync_training_artifacts
 
 
 class ACDCConversionTests(unittest.TestCase):
@@ -79,6 +81,31 @@ class ACDCConversionTests(unittest.TestCase):
                 '  0: "car"\n'
                 '  1: "person"\n',
             )
+
+    def test_training_artifacts_are_synced_to_backup_directory(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            run_dir = root / "run"
+            backup_dir = root / "drive_backup"
+            run_dir.mkdir()
+            checkpoint_paths = [run_dir / "last.pt", run_dir / "best.pt", run_dir / "results.csv"]
+            for path in checkpoint_paths:
+                path.write_text(path.name, encoding="utf-8")
+
+            trainer = SimpleNamespace(
+                last=checkpoint_paths[0],
+                best=checkpoint_paths[1],
+                csv=checkpoint_paths[2],
+                epoch=2,
+                epochs=50,
+            )
+            _sync_training_artifacts(trainer, backup_dir)
+
+            for path in checkpoint_paths:
+                self.assertEqual(
+                    (backup_dir / path.name).read_text(encoding="utf-8"),
+                    path.name,
+                )
 
 
 if __name__ == "__main__":
