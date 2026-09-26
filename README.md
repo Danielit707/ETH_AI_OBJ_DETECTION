@@ -57,7 +57,9 @@ need to be copied into this Git repository.
 
 Training output is streamed into the notebook. At each completed epoch, the
 latest and best checkpoints plus metrics are synchronized to
-`training_output/checkpoints/`. If the Colab runtime disconnects mid-training,
+`training_output/checkpoints_512px_batch32_30epochs_freeze10/`. This
+configuration-specific folder avoids accidentally resuming checkpoints created
+with the previous, slower settings. If the Colab runtime disconnects mid-training,
 rerun the notebook; after dataset conversion, its training cell resumes from
 the last checkpoint saved to Drive.
 
@@ -84,14 +86,16 @@ contains separate train/validation images and labels. Original data and
 generated files are ignored by Git. To use another output directory, pass
 `--output-dir`.
 
-Train the nano model for the default 50 epochs at 640 pixels:
+Train the nano model for up to 30 epochs at 512 pixels, with batch size 32,
+early stopping after 10 unimproved epochs, and the first 10 layers frozen:
 
 ```powershell
 python dataset/yolo_train.py
 ```
 
-Set `--dataset-dir`, `--model`, `--epochs`, and/or `--imgsz` to override the
-defaults. Training results are saved under `dataset/processed/runs/`.
+Set `--dataset-dir`, `--model`, `--epochs`, `--imgsz`, `--batch`, `--patience`,
+and/or `--freeze` to override the defaults. Use `--freeze 0` to train all
+layers. Training results are saved under `dataset/processed/runs/`.
 
 ## Next development step
 

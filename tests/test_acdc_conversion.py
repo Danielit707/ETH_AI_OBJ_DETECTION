@@ -1,11 +1,14 @@
 import json
+import sys
 import tempfile
+import types
 import unittest
 from types import SimpleNamespace
 from pathlib import Path
+from unittest.mock import patch
 
 from dataset.convert_coco_to_yolo import convert_acdc_dataset, convert_bbox_coco_to_yolo
-from dataset.yolo_train import _sync_training_artifacts
+from dataset.yolo_train import _sync_training_artifacts, main as train_main
 
 
 class ACDCConversionTests(unittest.TestCase):
@@ -106,6 +109,36 @@ class ACDCConversionTests(unittest.TestCase):
                     (backup_dir / path.name).read_text(encoding="utf-8"),
                     path.name,
                 )
+
+    def test_training_defaults_use_faster_transfer_learning_settings(self):
+        captured = {}
+
+        class FakeYOLO:
+            def __init__(self, model):
+                captured["model"] = model
+
+            def train(self, **kwargs):
+                captured["training"] = kwargs
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            dataset_dir = Path(temporary_directory)
+            (dataset_dir / "data.yaml").write_text("train: images/train\n", encoding="utf-8")
+            fake_ultralytics = types.ModuleType("ultralytics")
+            fake_ultralytics.YOLO = FakeYOLO
+            with (
+                patch.dict(sys.modules, {"ultralytics": fake_ultralytics}),
+                patch("sys.argv", ["yolo_train.py", "--dataset-dir", str(dataset_dir)]),
+            ):
+                train_main()
+
+        self.assertEqual(captured["model"], "yolov8n.pt")
+        self.assertEqual(
+            {
+                key: captured["training"][key]
+                for key in ("epochs", "imgsz", "batch", "patience", "freeze")
+            },
+            {"epochs": 30, "imgsz": 512, "batch": 32, "patience": 10, "freeze": 10},
+        )
 
 
 if __name__ == "__main__":
