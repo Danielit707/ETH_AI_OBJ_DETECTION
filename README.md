@@ -2,177 +2,35 @@
 
 [![CI](https://github.com/Danielit707/ETH_AI_OBJ_DETECTION/actions/workflows/ci.yml/badge.svg)](https://github.com/Danielit707/ETH_AI_OBJ_DETECTION/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Next.js 14](https://img.shields.io/badge/next.js-14-black.svg)](https://nextjs.org)
 [![License: ACDC Non-Commercial](https://img.shields.io/badge/license-ACDC%20Non--Commercial-red.svg)](License.pdf)
 
-Train an object detector to recognize road users in adverse-weather images
-using the ACDC dataset and YOLOv8. The target is to detect objects such as
-people, cars, and other road users in fog, night, rain, and snow—not to classify
-the weather itself.
+Object detection for road users in adverse-weather conditions. Trains a
+YOLO model on the ACDC dataset and deploys it through a FastAPI inference
+service with both a desktop client and a modern Next.js web interface.
 
-## Project status
+![Example detection](images/val_batch0_pred.jpg)
 
-- The ACDC COCO-to-YOLO conversion and YOLO training steps are implemented.
-- `api/` provides a FastAPI health endpoint and image inference endpoint.
-- `main.py` is a desktop client that submits images to the running API.
-- ACDC data, converted images, and full training runs remain local; only the
-  small training report and metrics are retained in the repository. Model
-  checkpoints stay local and are ignored by Git.
-- The completed baseline checkpoint and its metrics are documented under
-  [`reports/acdc-yolov8n/`](reports/acdc-yolov8n/); the checkpoint itself is
-  kept locally and excluded from Git.
-- Docker packages the API without bundling the model; mount your local
-  checkpoint at runtime.
+## What this project does
 
-## Setup
+- **Converts** ACDC COCO-format annotations to YOLO format (all 4 weather conditions)
+- **Trains** YOLO11n on ~37,000 adverse-weather road images (8 classes: person, rider, car, truck, bus, train, motorcycle, bicycle)
+- **Deploys** a FastAPI inference API with Docker (CPU or GPU)
+- **Provides** a Next.js web UI with visual bounding-box overlay, confidence controls, and class filtering
+- **Supports** test-time augmentation (TTA) for improved accuracy
 
-Use Python 3.10 or newer and install the project dependencies:
+## Quick start
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-```
-
-### Run the inference API with Docker
-
-The API expects your local checkpoint at
-`models/acdc-yolov8n-best.pt`. The trained model is intentionally not in Git;
-train it with the Colab workflow above or place your own compatible checkpoint
-at that path. Build and run the container:
+### Run the API
 
 ```powershell
 docker compose up --build
 ```
 
-Check health at `http://localhost:8000/health` and interactive API docs at
-`http://localhost:8000/docs`. Upload an image for prediction:
+- Health check: `http://localhost:8000/health`
+- API docs: `http://localhost:8000/docs`
 
-```powershell
-curl.exe -X POST "http://localhost:8000/predict?confidence=0.25&image_size=512" `
-  -F "image=@D:\path\to\scene.png"
-```
-
-The JSON response includes image dimensions and detections with the class ID,
-class name, confidence, and pixel-coordinate bounding box. Uploads are limited
-to 10 MiB and JPEG, PNG, or WebP. If the model is missing or fails to load,
-prediction returns HTTP 503 with the reason; `/health` reports whether the
-model is loaded.
-
-Run the desktop client in another terminal:
-
-```powershell
-python main.py
-```
-
-Set `DETECTION_API_URL` if the API is not at `http://127.0.0.1:8000`. The
-container is CPU-based by default; CPU inference may be slow. GPU-enabled
-Docker requires a compatible NVIDIA driver and NVIDIA Container Toolkit.
-
-If you only want the desktop client in a local virtual environment (with the
-API running in Docker), install its smaller dependency set instead:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-ui.txt
-python main.py
-```
-
-### Run tests
-
-```powershell
-python -m pip install -r requirements-test.txt
-python -m pytest -q
-```
-
-## Dataset and training
-
-ACDC is distributed separately and requires registration. Download it from
-the [official ACDC website](https://acdc.vision.ee.ethz.ch) and follow its
-license and citation requirements. The source dataset documentation and
-license are kept in [`dataset/`](dataset/).
-
-### Train with Google Colab
-
-For training from Google Drive, open
-[`notebooks/train_acdc_colab.ipynb`](notebooks/train_acdc_colab.ipynb) in
-Google Colab and select a GPU runtime. Put the downloaded archives in
-`My Drive/datasets/ACDC/`:
-
-```text
-datasets/ACDC/
-  gt_detection/gt_detection_trainval.zip
-  rgb_anon/rgb_anon_trainvaltest.zip
-```
-
-Run the notebook from top to bottom. It extracts the labeled adverse-weather
-train/validation data to Colab's temporary disk, converts and trains there,
-then saves the best checkpoint under
-`My Drive/datasets/ACDC/training_output/models/` and the training metrics and
-class config under `My Drive/datasets/ACDC/training_output/reports/`. The large
-dataset archives and model weights do not need to be copied into this Git
-repository.
-
-Training output is streamed into the notebook. At each completed epoch, the
-latest and best checkpoints plus metrics are synchronized to
-`training_output/checkpoints_512px_batch32_30epochs_freeze10/`. This
-configuration-specific folder avoids accidentally resuming checkpoints created
-with the previous, slower settings. If the Colab runtime disconnects mid-training,
-rerun the notebook; after dataset conversion, its training cell resumes from
-the last checkpoint saved to Drive.
-
-### Completed baseline
-
-The first 30-epoch run reached mAP@0.5 of 0.2664 and mAP@0.5:0.95 of 0.1538
-(both at epoch 24). See the [training report](reports/acdc-yolov8n/README.md)
-and [epoch metrics](reports/acdc-yolov8n/results.csv). The trained checkpoint
-is kept locally at `models/acdc-yolov8n-best.pt` and intentionally excluded
-from Git. To obtain or reproduce a checkpoint, train on your separately
-downloaded ACDC dataset using the Colab notebook. Because ACDC is
-non-commercially licensed, follow the dataset terms for checkpoint
-redistribution and usage.
-
-### Train locally
-
-The ACDC directory supplied to the scripts must contain:
-
-```text
-<acdc-root>/
-  gt_detection/{fog,night,rain,snow}/
-  rgb_anon/{fog,night,rain,snow}/{train,val}/
-```
-
-Convert the four weather conditions into one YOLO dataset. The converter reads
-the category IDs and names from the ACDC annotations, checks that they agree
-across conditions and splits, and writes the matching `data.yaml`:
-
-```powershell
-python dataset/run_conversion.py --acdc-root "D:\datasets\ACDC"
-```
-
-The converted dataset is written to `dataset/processed/` by default and
-contains separate train/validation images and labels. Original data and
-generated files are ignored by Git. To use another output directory, pass
-`--output-dir`.
-
-Train the nano model for up to 30 epochs at 512 pixels, with batch size 32,
-early stopping after 10 unimproved epochs, and the first 10 layers frozen:
-
-```powershell
-python dataset/yolo_train.py
-```
-
-Set `--dataset-dir`, `--model`, `--epochs`, `--imgsz`, `--batch`, `--patience`,
-and/or `--freeze` to override the defaults. Use `--freeze 0` to train all
-layers. Training results are saved under `dataset/processed/runs/`.
-
-## Web UI (Next.js)
-
-A modern web interface is available in [`web/`](web/). It provides drag-and-drop
-image upload, visual bounding-box overlay, confidence threshold control, and
-class filtering.
-
-### Quick start
+### Run the web UI
 
 ```powershell
 cd web
@@ -180,71 +38,98 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The UI calls the FastAPI
-backend at `http://localhost:8000` by default — set `DETECTION_API_URL` to
-change it.
+Open `http://localhost:3000` — the UI includes real ACDC sample images for
+one-click testing.
 
-### Features
-
-- Drag-and-drop or click-to-browse image upload
-- Real-time bounding-box overlay with class labels and confidence
-- Confidence threshold slider (0-100%)
-- Image size selector (320/512/640/800)
-- Class filter toggles
-- Detection list with per-class color coding
-- Responsive dark-mode design
-
-### Production build
+### Run the desktop client
 
 ```powershell
-cd web
-npm run build
-npm start
+python -m pip install -r requirements-ui.txt
+python main.py
 ```
 
-## Model Improvement
+## Project structure
 
-### Train YOLO11n (recommended)
+```
+api/                  FastAPI inference service
+  main.py             /health and /predict endpoints
+  inference.py        Lazy-loading, thread-safe model wrapper
+  tta.py              Test-time augmentation (multi-scale + flip)
+dataset/              ACDC conversion and training scripts
+  convert_coco_to_yolo.py
+  yolo_train.py
+  run_conversion.py
+docs/                 Project documentation
+images/               Example predictions and visualizations
+models/               Trained checkpoints (local, gitignored)
+  acdc-yolov8n-best.pt   Baseline YOLOv8n (mAP@0.5 = 0.2664)
+  acdc-yolov11n-best.pt  Improved YOLO11n (mAP@0.5 = 0.2906)
+notebooks/            Colab training notebooks
+reports/              Training metrics and evaluation results
+scripts/              Evaluation and comparison tools
+tests/                pytest test suite
+web/                  Next.js web interface
+main.py               CustomTkinter desktop client
+compose.yaml          Docker Compose configuration
+Dockerfile            CPU-only inference container
+```
+
+## Model performance
+
+| Model | mAP@0.5 | mAP@0.5:0.95 | Precision | Recall |
+|---|---|---|---|---|
+| YOLOv8n (baseline) | 0.2664 | 0.1538 | 0.5737 | 0.2561 |
+| YOLO11n (improved) | 0.2906 | 0.1611 | 0.4701 | 0.2998 |
+
+Both models are trained on the full ACDC dataset (fog, night, rain, snow) at
+512px resolution. The YOLO11n checkpoint was trained for 50 epochs with AdamW,
+cosine LR, mixup, and copy-paste augmentation.
+
+## Training
+
+### With Google Colab (recommended)
 
 Open [`notebooks/train_acdc_yolov11n_colab.ipynb`](notebooks/train_acdc_yolov11n_colab.ipynb)
-in Google Colab with a GPU runtime. The notebook trains YOLO11n with optimized
-hyperparameters:
+in Colab with a T4 GPU runtime. Training takes ~1 hour and produces a
+checkpoint with ~3 point mAP improvement over the baseline.
 
-| Parameter | Baseline (YOLOv8n) | Improved (YOLO11n) |
-|---|---|---|
-| Model | YOLOv8n | YOLO11n |
-| Image size | 512 | 512 (same — efficiency) |
-| Epochs | 30 | 50 |
-| Optimizer | auto | AdamW |
-| LR schedule | linear | cosine |
-| Mixup | 0.0 | 0.15 |
-| Copy-paste | 0.0 | 0.1 |
-| Frozen layers | 10 | none |
-
-Expected improvement: **+3-7 mAP@0.5** over the baseline (0.2664) in ~1 hour on T4.
-
-### Test-Time Augmentation (TTA)
-
-Enable TTA for higher accuracy at the cost of slower inference:
+### Local training
 
 ```powershell
-curl.exe -X POST "http://localhost:8000/predict?confidence=0.25&image_size=512&use_tta=true" `
+python dataset/run_conversion.py --acdc-root "D:\datasets\ACDC"
+python dataset/yolo_train.py --model yolo11n.pt --epochs 50 --imgsz 512 --batch 32
+```
+
+### Evaluate
+
+```powershell
+python scripts/evaluate_model.py --model models/acdc-yolov11n-best.pt --data dataset/processed/data.yaml
+```
+
+## API usage
+
+```powershell
+curl.exe -X POST "http://localhost:8000/predict?confidence=0.05&image_size=512" `
   -F "image=@D:\path\to\scene.png"
 ```
 
-TTA runs inference at multiple scales (0.8x, 1.0x, 1.2x) and horizontal flips,
-then merges results using Weighted Boxes Fusion.
+| Parameter | Default | Description |
+|---|---|---|
+| `confidence` | 0.05 | Confidence threshold (0-1) |
+| `image_size` | 512 | Inference resolution (32-1280) |
+| `use_tta` | false | Enable test-time augmentation |
 
-### Evaluate and compare
+## Testing
 
 ```powershell
-python scripts/evaluate_model.py --model models/acdc-yolov8n-best.pt --data dataset/processed/data.yaml
-python scripts/evaluate_model.py --model models/acdc-yolov11n-best.pt --data dataset/processed/data.yaml --output reports/evaluation-yolov11n/
-python scripts/compare_models.py --baseline reports/evaluation/metrics.json --improved reports/evaluation-yolov11n/metrics.json
+python -m pip install -r requirements-test.txt
+python -m pytest -q
 ```
+
+30 tests covering the API, inference service, dataset conversion, and UI.
 
 ## License
 
 The ACDC dataset and trained model weights are subject to the
-[ACDC License](License.pdf) (non-commercial use). The source code in this
-repository is provided for research and educational purposes.
+[ACDC License](License.pdf) (non-commercial use). The source code is provided
+for research and educational purposes.

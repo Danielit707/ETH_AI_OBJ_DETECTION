@@ -7,8 +7,7 @@ import ControlPanel from "./ControlPanel";
 import ResultsList from "./ResultsList";
 import ApiStatus from "./ApiStatus";
 import StatsBar from "./StatsBar";
-import DemoButton from "./DemoButton";
-import ExampleScenes from "./ExampleScenes";
+import SampleImages from "./SampleImages";
 
 export interface Detection {
   class_id: number;
@@ -39,7 +38,7 @@ export default function DetectionApp() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [detections, setDetections] = useState<Detection[]>([]);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
-  const [confidence, setConfidence] = useState(0.25);
+  const [confidence, setConfidence] = useState(0.05);
   const [imgSizeParam, setImgSizeParam] = useState(512);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -168,15 +167,13 @@ export default function DetectionApp() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-4">
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-              <div className="flex-1">
-                <ImageUploader onImageUpload={handleImageUpload} loading={loading} />
-              </div>
-              <div className="flex items-center">
-                <DemoButton onImageUpload={handleImageUpload} disabled={loading} />
-              </div>
+            <ImageUploader onImageUpload={handleImageUpload} loading={loading} />
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Real ACDC samples
+              </span>
+              <SampleImages onImageUpload={handleImageUpload} disabled={loading} />
             </div>
-            <ExampleScenes onImageUpload={handleImageUpload} disabled={loading} />
           </div>
           {image && (
             <DetectionCanvas

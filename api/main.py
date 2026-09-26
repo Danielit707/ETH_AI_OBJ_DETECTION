@@ -55,9 +55,10 @@ def create_app(inference_service=None):
     @app.post("/predict", response_model=PredictionResponse)
     async def predict(
         image: UploadFile = File(...),
-        confidence: float = Query(default=0.25, ge=0.0, le=1.0),
+        confidence: float = Query(default=0.05, ge=0.0, le=1.0),
         image_size: int = Query(default=512, ge=32, le=1280),
         use_tta: bool = Query(default=False, description="Enable test-time augmentation"),
+        nms_iou: float = Query(default=0.7, ge=0.0, le=1.0, description="NMS IoU threshold"),
     ):
         if image.content_type not in {"image/jpeg", "image/png", "image/webp"}:
             raise HTTPException(

@@ -5,6 +5,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MODEL_PATH: /models/acdc-yolov8n-best.pt
+      MODEL_PATH: /models/acdc-yolov11n-best.pt
     volumes:
       - ./models:/models:ro
