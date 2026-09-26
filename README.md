@@ -213,15 +213,15 @@ hyperparameters:
 | Parameter | Baseline (YOLOv8n) | Improved (YOLO11n) |
 |---|---|---|
 | Model | YOLOv8n | YOLO11n |
-| Image size | 512 | 640 |
-| Epochs | 30 | 100 |
+| Image size | 512 | 512 (same — efficiency) |
+| Epochs | 30 | 50 |
 | Optimizer | auto | AdamW |
 | LR schedule | linear | cosine |
 | Mixup | 0.0 | 0.15 |
 | Copy-paste | 0.0 | 0.1 |
 | Frozen layers | 10 | none |
 
-Expected improvement: **+5-10 mAP@0.5** over the baseline (0.2664).
+Expected improvement: **+3-7 mAP@0.5** over the baseline (0.2664) in ~1 hour on T4.
 
 ### Test-Time Augmentation (TTA)
 

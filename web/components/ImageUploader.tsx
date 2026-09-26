@@ -76,11 +76,14 @@ export default function ImageUploader({ onImageUpload, loading }: Props) {
         />
       ) : (
         <div className="p-8 text-center">
-          <div className="mb-3 text-4xl">+</div>
+          <div className="mb-3 text-4xl font-light text-gray-500">+</div>
           <p className="text-gray-300">
             Drag & drop an image here, or click to browse
           </p>
           <p className="mt-1 text-sm text-gray-500">JPEG, PNG, WebP (max 10 MB)</p>
+          <p className="mt-3 text-xs text-gray-600">
+            Or use the &quot;Try Demo Scene&quot; button
+          </p>
         </div>
       )}
       {loading && (
