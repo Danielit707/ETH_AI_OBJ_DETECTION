@@ -45,7 +45,7 @@ class ACDCConversionTests(unittest.TestCase):
                         "images": [
                             {
                                 "id": 1,
-                                "file_name": "sequence/frame.png",
+                                "file_name": f"{condition}/{split}/sequence/frame.png",
                                 "width": 10,
                                 "height": 10,
                             }

@@ -70,26 +70,36 @@ def _read_annotations(path):
 
 def _find_image(acdc_root, condition, split, file_name):
     relative_path = Path(file_name)
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise ValueError(f"Image path in COCO annotations must be relative and stay within ACDC: {file_name!r}.")
+
     candidates = (
         acdc_root / relative_path,
+        acdc_root / "rgb_anon" / relative_path,
         acdc_root / "rgb_anon" / condition / split / relative_path.name,
     )
+    parts = relative_path.parts
+    for index, part in enumerate(parts[:-1]):
+        if part in CONDITIONS and parts[index + 1] in SPLITS:
+            candidates += (acdc_root / "rgb_anon" / Path(*parts[index:]),)
+
     for candidate in candidates:
         if candidate.is_file():
             return candidate
 
-    image_root = acdc_root / "rgb_anon" / condition / split
+    image_root = acdc_root / "rgb_anon"
     matches = list(image_root.rglob(relative_path.name)) if image_root.is_dir() else []
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
         raise FileNotFoundError(
             f"Image {file_name!r} matches multiple files under {image_root}; "
-            "place it at the path recorded in the COCO annotation."
+            "preserve the image paths from the ACDC archive."
         )
     raise FileNotFoundError(
-        f"Could not find image {file_name!r}. Expected it under {acdc_root} or "
-        f"{image_root}. Download the anonymized ACDC images and preserve their directory structure."
+        f"Could not find image {file_name!r} referenced by the {condition}/{split} annotations. "
+        f"Expected it under {acdc_root} or {image_root}. Confirm that the anonymized ACDC train/val "
+        "images were extracted and that their directory structure was preserved."
     )
 
 

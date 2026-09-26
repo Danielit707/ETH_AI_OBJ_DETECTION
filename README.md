@@ -36,6 +36,27 @@ the [official ACDC website](https://acdc.vision.ee.ethz.ch) and follow its
 license and citation requirements. The source dataset documentation and
 license are kept in [`dataset/`](dataset/).
 
+### Train with Google Colab
+
+For training from Google Drive, open
+[`notebooks/train_acdc_colab.ipynb`](notebooks/train_acdc_colab.ipynb) in
+Google Colab and select a GPU runtime. Put the downloaded archives in
+`My Drive/datasets/ACDC/`:
+
+```text
+datasets/ACDC/
+  gt_detection/gt_detection_trainval.zip
+  rgb_anon/rgb_anon_trainvaltest.zip
+```
+
+Run the notebook from top to bottom. It extracts the labeled adverse-weather
+train/validation data to Colab's temporary disk, converts and trains there,
+then saves `best.pt`, the training metrics, and the generated class config to
+`My Drive/datasets/ACDC/training_output/`. The large dataset archives do not
+need to be copied into this Git repository.
+
+### Train locally
+
 The ACDC directory supplied to the scripts must contain:
 
 ```text
