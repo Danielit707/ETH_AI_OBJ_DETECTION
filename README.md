@@ -166,14 +166,82 @@ Set `--dataset-dir`, `--model`, `--epochs`, `--imgsz`, `--batch`, `--patience`,
 and/or `--freeze` to override the defaults. Use `--freeze 0` to train all
 layers. Training results are saved under `dataset/processed/runs/`.
 
-## Next development steps
+## Web UI (Next.js)
 
-1. Run the API container locally with the private checkpoint mounted; verify
-   health and predictions on representative images from each weather condition.
-2. Add an annotated-image response or a web UI so detections can be inspected
-   visually, not just as JSON.
-3. Improve the baseline using per-class metrics and failure analysis before
-   describing it as production-ready.
+A modern web interface is available in [`web/`](web/). It provides drag-and-drop
+image upload, visual bounding-box overlay, confidence threshold control, and
+class filtering.
+
+### Quick start
+
+```powershell
+cd web
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). The UI calls the FastAPI
+backend at `http://localhost:8000` by default — set `DETECTION_API_URL` to
+change it.
+
+### Features
+
+- Drag-and-drop or click-to-browse image upload
+- Real-time bounding-box overlay with class labels and confidence
+- Confidence threshold slider (0-100%)
+- Image size selector (320/512/640/800)
+- Class filter toggles
+- Detection list with per-class color coding
+- Responsive dark-mode design
+
+### Production build
+
+```powershell
+cd web
+npm run build
+npm start
+```
+
+## Model Improvement
+
+### Train YOLO11n (recommended)
+
+Open [`notebooks/train_acdc_yolov11n_colab.ipynb`](notebooks/train_acdc_yolov11n_colab.ipynb)
+in Google Colab with a GPU runtime. The notebook trains YOLO11n with optimized
+hyperparameters:
+
+| Parameter | Baseline (YOLOv8n) | Improved (YOLO11n) |
+|---|---|---|
+| Model | YOLOv8n | YOLO11n |
+| Image size | 512 | 640 |
+| Epochs | 30 | 100 |
+| Optimizer | auto | AdamW |
+| LR schedule | linear | cosine |
+| Mixup | 0.0 | 0.15 |
+| Copy-paste | 0.0 | 0.1 |
+| Frozen layers | 10 | none |
+
+Expected improvement: **+5-10 mAP@0.5** over the baseline (0.2664).
+
+### Test-Time Augmentation (TTA)
+
+Enable TTA for higher accuracy at the cost of slower inference:
+
+```powershell
+curl.exe -X POST "http://localhost:8000/predict?confidence=0.25&image_size=512&use_tta=true" `
+  -F "image=@D:\path\to\scene.png"
+```
+
+TTA runs inference at multiple scales (0.8x, 1.0x, 1.2x) and horizontal flips,
+then merges results using Weighted Boxes Fusion.
+
+### Evaluate and compare
+
+```powershell
+python scripts/evaluate_model.py --model models/acdc-yolov8n-best.pt --data dataset/processed/data.yaml
+python scripts/evaluate_model.py --model models/acdc-yolov11n-best.pt --data dataset/processed/data.yaml --output reports/evaluation-yolov11n/
+python scripts/compare_models.py --baseline reports/evaluation/metrics.json --improved reports/evaluation-yolov11n/metrics.json
+```
 
 ## License
 

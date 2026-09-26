@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
@@ -56,6 +57,7 @@ def create_app(inference_service=None):
         image: UploadFile = File(...),
         confidence: float = Query(default=0.25, ge=0.0, le=1.0),
         image_size: int = Query(default=512, ge=32, le=1280),
+        use_tta: bool = Query(default=False, description="Enable test-time augmentation"),
     ):
         if image.content_type not in {"image/jpeg", "image/png", "image/webp"}:
             raise HTTPException(
@@ -93,7 +95,20 @@ def create_app(inference_service=None):
             raise HTTPException(status_code=400, detail="Could not decode the uploaded image.") from error
 
         try:
-            detections = await run_in_threadpool(service.predict, input_image, confidence, image_size)
+            if use_tta:
+                from api.tta import tta_predict
+
+                detections = await run_in_threadpool(
+                    tta_predict, service._get_model(), input_image, confidence, image_size
+                )
+                for det in detections:
+                    det["class_name"] = service._get_model().names.get(
+                        det["class_id"], str(det["class_id"])
+                    )
+            else:
+                detections = await run_in_threadpool(
+                    service.predict, input_image, confidence, image_size
+                )
         except ModelNotAvailableError as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
 

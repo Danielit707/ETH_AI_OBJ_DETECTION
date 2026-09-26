@@ -72,3 +72,18 @@ class InferenceService:
                     }
                 )
         return detections
+
+    def predict_with_tta(
+        self, image: Image.Image, confidence: float, image_size: int
+    ):
+        """Predict with test-time augmentation (multi-scale + flip)."""
+        from api.tta import tta_predict
+
+        model = self._get_model()
+        detections = tta_predict(model, image, confidence, image_size)
+        names = model.names if isinstance(model.names, dict) else {
+            i: n for i, n in enumerate(model.names)
+        }
+        for det in detections:
+            det["class_name"] = names.get(det["class_id"], str(det["class_id"]))
+        return detections
