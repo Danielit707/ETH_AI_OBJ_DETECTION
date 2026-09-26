@@ -1,0 +1,10 @@
+services:
+  inference-api:
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_PATH: /models/acdc-yolov8n-best.pt
+    volumes:
+      - ./models:/models:ro

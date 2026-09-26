@@ -8,10 +8,16 @@ the weather itself.
 ## Project status
 
 - The ACDC COCO-to-YOLO conversion and YOLO training steps are implemented.
-- `main.py` is still a UI prototype; image selection and inference are not
-  implemented yet.
-- ACDC data, converted images, model weights, and training runs are local and
-  are not committed to Git.
+- `api/` provides a FastAPI health endpoint and image inference endpoint.
+- `main.py` is a desktop client that submits images to the running API.
+- ACDC data, converted images, and full training runs remain local; only the
+  small training report and metrics are retained in the repository. Model
+  checkpoints stay local and are ignored by Git.
+- The completed baseline checkpoint and its metrics are documented under
+  [`reports/acdc-yolov8n/`](reports/acdc-yolov8n/); the checkpoint itself is
+  kept locally and excluded from Git.
+- Docker packages the API without bundling the model; mount your local
+  checkpoint at runtime.
 
 ## Setup
 
@@ -23,10 +29,56 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-Start the current UI prototype with:
+### Run the inference API with Docker
+
+The API expects your local checkpoint at
+`models/acdc-yolov8n-best.pt`. The trained model is intentionally not in Git;
+train it with the Colab workflow above or place your own compatible checkpoint
+at that path. Build and run the container:
+
+```powershell
+docker compose up --build
+```
+
+Check health at `http://localhost:8000/health` and interactive API docs at
+`http://localhost:8000/docs`. Upload an image for prediction:
+
+```powershell
+curl.exe -X POST "http://localhost:8000/predict?confidence=0.25&image_size=512" `
+  -F "image=@D:\path\to\scene.png"
+```
+
+The JSON response includes image dimensions and detections with the class ID,
+class name, confidence, and pixel-coordinate bounding box. Uploads are limited
+to 10 MiB and JPEG, PNG, or WebP. If the model is missing or fails to load,
+prediction returns HTTP 503 with the reason; `/health` reports whether the
+model is loaded.
+
+Run the desktop client in another terminal:
 
 ```powershell
 python main.py
+```
+
+Set `DETECTION_API_URL` if the API is not at `http://127.0.0.1:8000`. The
+container is CPU-based by default; CPU inference may be slow. GPU-enabled
+Docker requires a compatible NVIDIA driver and NVIDIA Container Toolkit.
+
+If you only want the desktop client in a local virtual environment (with the
+API running in Docker), install its smaller dependency set instead:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-ui.txt
+python main.py
+```
+
+### Run tests
+
+```powershell
+python -m pip install -r requirements-test.txt
+python -m pytest -q
 ```
 
 ## Dataset and training
@@ -51,9 +103,11 @@ datasets/ACDC/
 
 Run the notebook from top to bottom. It extracts the labeled adverse-weather
 train/validation data to Colab's temporary disk, converts and trains there,
-then saves `best.pt`, the training metrics, and the generated class config to
-`My Drive/datasets/ACDC/training_output/`. The large dataset archives do not
-need to be copied into this Git repository.
+then saves the best checkpoint under
+`My Drive/datasets/ACDC/training_output/models/` and the training metrics and
+class config under `My Drive/datasets/ACDC/training_output/reports/`. The large
+dataset archives and model weights do not need to be copied into this Git
+repository.
 
 Training output is streamed into the notebook. At each completed epoch, the
 latest and best checkpoints plus metrics are synchronized to
@@ -62,6 +116,17 @@ configuration-specific folder avoids accidentally resuming checkpoints created
 with the previous, slower settings. If the Colab runtime disconnects mid-training,
 rerun the notebook; after dataset conversion, its training cell resumes from
 the last checkpoint saved to Drive.
+
+### Completed baseline
+
+The first 30-epoch run reached mAP@0.5 of 0.2664 and mAP@0.5:0.95 of 0.1538
+(both at epoch 24). See the [training report](reports/acdc-yolov8n/README.md)
+and [epoch metrics](reports/acdc-yolov8n/results.csv). The trained checkpoint
+is kept locally at `models/acdc-yolov8n-best.pt` and intentionally excluded
+from Git. To obtain or reproduce a checkpoint, train on your separately
+downloaded ACDC dataset using the Colab notebook. Because ACDC is
+non-commercially licensed, follow the dataset terms for checkpoint
+redistribution and usage.
 
 ### Train locally
 
@@ -97,8 +162,11 @@ Set `--dataset-dir`, `--model`, `--epochs`, `--imgsz`, `--batch`, `--patience`,
 and/or `--freeze` to override the defaults. Use `--freeze 0` to train all
 layers. Training results are saved under `dataset/processed/runs/`.
 
-## Next development step
+## Next development steps
 
-Run conversion and training against the locally downloaded ACDC data, review
-validation metrics and predictions, then use the resulting best checkpoint to
-implement image inference in the UI.
+1. Run the API container locally with the private checkpoint mounted; verify
+   health and predictions on representative images from each weather condition.
+2. Add an annotated-image response or a web UI so detections can be inspected
+   visually, not just as JSON.
+3. Improve the baseline using per-class metrics and failure analysis before
+   describing it as production-ready.

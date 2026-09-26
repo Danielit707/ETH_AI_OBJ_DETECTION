@@ -1,7 +1,5 @@
-customtkinter
-ultralytics
 fastapi
 uvicorn[standard]
 python-multipart
 pillow
-httpx
+ultralytics
