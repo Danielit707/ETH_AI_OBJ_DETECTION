@@ -21,4 +21,3 @@ runs/
 # Local-only files
 .env
 .env.*
-/License.pdf
