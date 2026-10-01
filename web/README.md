@@ -30,6 +30,7 @@ DETECTION_API_URL=http://192.168.1.100:8000 npm run dev
 | Class toggles | Show/hide specific object classes |
 | Stats bar | Object count, average confidence, per-class breakdown |
 | Inference timing | Displays API response time |
+| Prediction progress | Shows queue, model download/load, and inference stages |
 | Export | Download annotated image (PNG) or detections (JSON) |
 | API status | Live indicator showing backend connection state |
 

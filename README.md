@@ -74,7 +74,10 @@ private Hugging Face model repository on its first prediction.
    the Render API's service URL (for example, `https://your-api.onrender.com`),
    then deploy or redeploy.
 5. Open the Vercel deployment URL, check that the API indicator is online, and
-   run a prediction. The first request may take longer while the model loads.
+   run a prediction. The UI reports when the request is queued, the checkpoint
+   is downloaded, the model is loaded, and image inference is running. The
+   first request may take longer while the model loads. Prediction jobs are
+   held in API process memory, so keep the Render API at one instance.
    Vercel Functions limit request bodies to 4.5 MB, even though the API itself
    accepts images up to 10 MiB. To process larger uploads, host the Next.js app
    on a Node service (for example, Render) instead of routing uploads through

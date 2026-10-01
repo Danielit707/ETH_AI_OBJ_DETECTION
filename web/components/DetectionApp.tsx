@@ -8,6 +8,7 @@ import ResultsList from "./ResultsList";
 import ApiStatus from "./ApiStatus";
 import StatsBar from "./StatsBar";
 import SampleImages from "./SampleImages";
+import DetectionProgress from "./DetectionProgress";
 
 export interface Detection {
   class_id: number;
@@ -20,6 +21,15 @@ export interface PredictionResponse {
   width: number;
   height: number;
   detections: Detection[];
+}
+
+interface PredictionJob {
+  job_id: string;
+  status: "queued" | "processing" | "completed" | "failed";
+  stage: string;
+  message: string;
+  result?: PredictionResponse | null;
+  error?: string;
 }
 
 const CLASS_COLORS: Record<string, string> = {
@@ -45,6 +55,7 @@ export default function DetectionApp() {
   const [enabledClasses, setEnabledClasses] = useState<Set<string>>(new Set());
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
   const [inferenceTime, setInferenceTime] = useState<number | null>(null);
+  const [progress, setProgress] = useState<{ stage: string; message: string } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -67,6 +78,7 @@ export default function DetectionApp() {
     setDetections([]);
     setError(null);
     setInferenceTime(null);
+    setProgress(null);
     const img = new Image();
     img.onload = () => {
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
@@ -79,6 +91,7 @@ export default function DetectionApp() {
     setLoading(true);
     setError(null);
     setInferenceTime(null);
+    setProgress({ stage: "queued", message: "Uploading image to the inference service…" });
     const startTime = performance.now();
     try {
       const formData = new FormData();
@@ -96,7 +109,31 @@ export default function DetectionApp() {
         throw new Error(errData.error || `Request failed with status ${response.status}`);
       }
 
-      const data: PredictionResponse = await response.json();
+      let job: PredictionJob = await response.json();
+      setProgress({ stage: job.stage, message: job.message });
+      const pollDeadline = Date.now() + 10 * 60 * 1000;
+      while (job.status === "queued" || job.status === "processing") {
+        if (Date.now() >= pollDeadline) {
+          throw new Error("This prediction is taking longer than expected. Please try again.");
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const statusResponse = await fetch(`/api/detect/${encodeURIComponent(job.job_id)}`, {
+          cache: "no-store",
+        });
+        const statusData: PredictionJob = await statusResponse.json();
+        if (!statusResponse.ok) {
+          throw new Error(statusData.error || `Could not get prediction status (${statusResponse.status})`);
+        }
+        job = statusData;
+        setProgress({ stage: job.stage, message: job.message });
+      }
+      if (job.status === "failed") {
+        throw new Error(job.message || "Prediction failed.");
+      }
+      if (!job.result) {
+        throw new Error("The inference service completed without returning a prediction.");
+      }
+      const data = job.result;
       const elapsed = performance.now() - startTime;
       setInferenceTime(elapsed);
       setDetections(data.detections);
@@ -107,6 +144,7 @@ export default function DetectionApp() {
       setDetections([]);
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   }, [imageFile, confidence, imgSizeParam]);
 
@@ -182,6 +220,9 @@ export default function DetectionApp() {
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-red-400">
               {error}
             </div>
+          )}
+          {loading && progress && (
+            <DetectionProgress stage={progress.stage} message={progress.message} />
           )}
           {filteredDetections.length > 0 && (
             <div className="flex gap-2">

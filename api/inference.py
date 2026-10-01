@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from threading import Lock
+from typing import Callable
 
 from PIL import Image
 import requests
@@ -8,6 +9,7 @@ import requests
 
 DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "acdc-yolov8n-best.pt"
 MAX_MODEL_BYTES = 512 * 1024 * 1024
+ProgressCallback = Callable[[str], None]
 
 
 class ModelNotAvailableError(RuntimeError):
@@ -25,14 +27,16 @@ class InferenceService:
     def is_loaded(self):
         return self._model is not None
 
-    def _get_model(self):
+    def _get_model(self, progress_callback: ProgressCallback | None = None):
         if self._model is not None:
             return self._model
         with self._model_lock:
             if self._model is not None:
                 return self._model
             if not self.model_path.is_file():
-                self._download_model()
+                self._download_model(progress_callback)
+            if progress_callback:
+                progress_callback("loading_model")
             try:
                 from ultralytics import YOLO
 
@@ -43,7 +47,7 @@ class InferenceService:
                 ) from error
         return self._model
 
-    def _download_model(self):
+    def _download_model(self, progress_callback: ProgressCallback | None = None):
         model_url = os.environ.get("MODEL_URL")
         if not model_url:
             raise ModelNotAvailableError(
@@ -52,6 +56,8 @@ class InferenceService:
             )
         if not model_url.startswith("https://"):
             raise ModelNotAvailableError("MODEL_URL must use HTTPS.")
+        if progress_callback:
+            progress_callback("downloading_model")
 
         headers = {}
         token = os.environ.get("MODEL_DOWNLOAD_TOKEN")
@@ -85,8 +91,16 @@ class InferenceService:
         finally:
             temporary_path.unlink(missing_ok=True)
 
-    def predict(self, image: Image.Image, confidence: float, image_size: int):
-        model = self._get_model()
+    def predict(
+        self,
+        image: Image.Image,
+        confidence: float,
+        image_size: int,
+        progress_callback: ProgressCallback | None = None,
+    ):
+        model = self._get_model(progress_callback)
+        if progress_callback:
+            progress_callback("predicting")
         with self._prediction_lock:
             results = model.predict(image, conf=confidence, imgsz=image_size, verbose=False)
         detections = []

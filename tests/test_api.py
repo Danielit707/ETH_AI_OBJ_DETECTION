@@ -17,10 +17,13 @@ class FakeInferenceService:
         self.error = error
         self.calls = []
 
-    def predict(self, image, confidence, image_size):
+    def predict(self, image, confidence, image_size, progress_callback=None):
         self.calls.append((image.size, confidence, image_size))
         if self.error:
             raise self.error
+        if progress_callback:
+            progress_callback("loading_model")
+            progress_callback("predicting")
         return self.detections
 
 
@@ -78,6 +81,42 @@ class InferenceApiTests(unittest.TestCase):
             },
         )
         self.assertEqual(self.service.calls, [((32, 24), 0.4, 416)])
+
+    def test_prediction_job_returns_status_and_result(self):
+        response = self.client.post(
+            "/predict/jobs",
+            files={"image": ("scene.png", png_bytes(), "image/png")},
+            params={"confidence": 0.4, "image_size": 416},
+        )
+
+        self.assertEqual(response.status_code, 202)
+        job_id = response.json()["job_id"]
+        self.assertEqual(response.json()["status"], "queued")
+
+        status_response = self.client.get(f"/predict/jobs/{job_id}")
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.json()["status"], "completed")
+        self.assertEqual(status_response.json()["stage"], "completed")
+        self.assertEqual(
+            status_response.json()["result"]["detections"][0]["class_name"], "car"
+        )
+        self.assertEqual(self.service.calls, [((32, 24), 0.4, 416)])
+
+    def test_prediction_job_reports_inference_failure(self):
+        service = FakeInferenceService(error=ModelNotAvailableError("checkpoint missing"))
+        client = TestClient(create_app(service))
+        response = client.post(
+            "/predict/jobs",
+            files={"image": ("scene.png", png_bytes(), "image/png")},
+        )
+
+        status_response = client.get(f"/predict/jobs/{response.json()['job_id']}")
+        self.assertEqual(status_response.json()["status"], "failed")
+        self.assertEqual(status_response.json()["message"], "checkpoint missing")
+
+    def test_unknown_prediction_job_returns_not_found(self):
+        response = self.client.get("/predict/jobs/not-a-job")
+        self.assertEqual(response.status_code, 404)
 
     def test_empty_detection_list_is_successful_prediction(self):
         self.service.detections = []

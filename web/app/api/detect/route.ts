@@ -23,7 +23,11 @@ export async function POST(request: NextRequest) {
     backendForm.append("confidence", confidence);
     backendForm.append("image_size", imageSize);
 
-    const response = await fetch(`${API_URL}/predict`, {
+    const params = new URLSearchParams({
+      confidence: String(confidence),
+      image_size: String(imageSize),
+    });
+    const response = await fetch(`${API_URL}/predict/jobs?${params}`, {
       method: "POST",
       body: backendForm,
     });
@@ -36,8 +40,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(await response.json(), { status: response.status });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
