@@ -6,7 +6,6 @@ from tkinter import filedialog
 import customtkinter as ctk
 import httpx
 
-
 API_URL = os.environ.get("DETECTION_API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 
@@ -86,7 +85,10 @@ def main():
         prediction = response.json()
         detections = prediction["detections"]
         status.configure(
-            text=f"{len(detections)} detection(s) in {prediction['width']}x{prediction['height']} image."
+            text=(
+                f"{len(detections)} detection(s) in "
+                f"{prediction['width']}x{prediction['height']} image."
+            )
         )
         if not detections:
             show_results("No objects detected above the confidence threshold.")

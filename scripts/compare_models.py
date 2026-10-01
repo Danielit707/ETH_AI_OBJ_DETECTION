@@ -18,7 +18,7 @@ def main():
     args = parser.parse_args()
 
     baseline = json.loads(Path(args.baseline).read_text())
-    improved = json.read_text(args.improved) if False else json.loads(Path(args.improved).read_text())
+    improved = json.loads(Path(args.improved).read_text())
 
     b_metrics = baseline["metrics"]
     i_metrics = improved["metrics"]

@@ -5,7 +5,6 @@ import shutil
 from collections import defaultdict
 from pathlib import Path
 
-
 CONDITIONS = ("fog", "night", "rain", "snow")
 SPLITS = ("train", "val")
 
@@ -46,7 +45,11 @@ def _read_annotations(path):
     categories = data.get("categories")
     images = data.get("images")
     annotations = data.get("annotations")
-    if not isinstance(categories, list) or not isinstance(images, list) or not isinstance(annotations, list):
+    if (
+        not isinstance(categories, list)
+        or not isinstance(images, list)
+        or not isinstance(annotations, list)
+    ):
         raise ValueError(f"{path} must contain categories, images, and annotations lists.")
 
     category_names = {}
@@ -71,7 +74,10 @@ def _read_annotations(path):
 def _find_image(acdc_root, condition, split, file_name):
     relative_path = Path(file_name)
     if relative_path.is_absolute() or ".." in relative_path.parts:
-        raise ValueError(f"Image path in COCO annotations must be relative and stay within ACDC: {file_name!r}.")
+        raise ValueError(
+            "Image path in COCO annotations must be relative and stay within ACDC: "
+            f"{file_name!r}."
+        )
 
     candidates = (
         acdc_root / relative_path,
@@ -98,7 +104,8 @@ def _find_image(acdc_root, condition, split, file_name):
         )
     raise FileNotFoundError(
         f"Could not find image {file_name!r} referenced by the {condition}/{split} annotations. "
-        f"Expected it under {acdc_root} or {image_root}. Confirm that the anonymized ACDC train/val "
+        f"Expected it under {acdc_root} or {image_root}. Confirm that the anonymized "
+        "ACDC train/val "
         "images were extracted and that their directory structure was preserved."
     )
 
@@ -111,7 +118,10 @@ def _write_data_yaml(output_dir, class_names):
         f"nc: {len(class_names)}",
         "names:",
     ]
-    lines.extend(f"  {index}: {json.dumps(name, ensure_ascii=True)}" for index, name in enumerate(class_names))
+    lines.extend(
+        f"  {index}: {json.dumps(name, ensure_ascii=True)}"
+        for index, name in enumerate(class_names)
+    )
     (output_dir / "data.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -147,15 +157,19 @@ def convert_acdc_dataset(acdc_root, output_dir):
             images, annotations, categories = _read_annotations(annotation_path)
             ordered_categories = sorted(categories.items())
             if class_ids is None:
-                class_ids = {category_id: index for index, (category_id, _) in enumerate(ordered_categories)}
+                class_ids = {
+                    category_id: index
+                    for index, (category_id, _) in enumerate(ordered_categories)
+                }
                 class_names = [name for _, name in ordered_categories]
             elif ordered_categories != sorted(
                 (category_id, class_names[index])
                 for category_id, index in class_ids.items()
             ):
                 raise ValueError(
-                    f"{annotation_path} has a different category mapping from the other ACDC splits."
-                )
+                f"{annotation_path} has a different category mapping from the "
+                "other ACDC splits."
+            )
 
             annotations_by_image = defaultdict(list)
             image_ids = set()
@@ -173,8 +187,14 @@ def convert_acdc_dataset(acdc_root, output_dir):
                 file_name = image.get("file_name")
                 width = image.get("width")
                 height = image.get("height")
-                if not isinstance(image_id, int) or isinstance(image_id, bool) or not isinstance(file_name, str):
-                    raise ValueError(f"{annotation_path} contains an invalid image entry: {image!r}.")
+                if (
+                    not isinstance(image_id, int)
+                    or isinstance(image_id, bool)
+                    or not isinstance(file_name, str)
+                ):
+                    raise ValueError(
+                        f"{annotation_path} contains an invalid image entry: {image!r}."
+                    )
                 if image_id in image_ids:
                     raise ValueError(f"{annotation_path} contains duplicate image ID {image_id!r}.")
                 image_ids.add(image_id)
@@ -186,7 +206,9 @@ def convert_acdc_dataset(acdc_root, output_dir):
                     or width <= 0
                     or height <= 0
                 ):
-                    raise ValueError(f"{annotation_path} has invalid dimensions for image {image_id!r}.")
+                    raise ValueError(
+                        f"{annotation_path} has invalid dimensions for image {image_id!r}."
+                    )
 
                 source_image = _find_image(acdc_root, condition, split, file_name)
                 image_stem = f"{condition}_{image_id}"

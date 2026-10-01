@@ -21,7 +21,6 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
 from ultralytics import YOLO
 
 
@@ -42,7 +41,6 @@ def compute_per_class_metrics(results, model) -> dict:
         i: n for i, n in enumerate(results.names)
     }
 
-    metrics = results.results_dict if hasattr(results, "results_dict") else {}
     maps = results.maps if hasattr(results, "maps") else {}
 
     per_class = {}

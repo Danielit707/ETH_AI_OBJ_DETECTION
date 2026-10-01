@@ -6,7 +6,6 @@ results using Weighted Boxes Fusion (WBF).
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -97,7 +96,9 @@ def tta_predict(
     )
 
     detections: list[dict[str, Any]] = []
-    for box, score, label in zip(merged_boxes, merged_scores, merged_labels):
+    for box, score, label in zip(
+        merged_boxes, merged_scores, merged_labels, strict=True
+    ):
         x1, y1, x2, y2 = (float(v) for v in box)
         class_id = int(label)
         detections.append(

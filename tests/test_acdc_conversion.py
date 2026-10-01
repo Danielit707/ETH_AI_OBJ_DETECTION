@@ -3,12 +3,13 @@ import sys
 import tempfile
 import types
 import unittest
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dataset.convert_coco_to_yolo import convert_acdc_dataset, convert_bbox_coco_to_yolo
-from dataset.yolo_train import _sync_training_artifacts, main as train_main
+from dataset.yolo_train import _sync_training_artifacts
+from dataset.yolo_train import main as train_main
 
 
 class ACDCConversionTests(unittest.TestCase):

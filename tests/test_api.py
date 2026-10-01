@@ -1,5 +1,5 @@
-from io import BytesIO
 import unittest
+from io import BytesIO
 
 from fastapi.testclient import TestClient
 from PIL import Image

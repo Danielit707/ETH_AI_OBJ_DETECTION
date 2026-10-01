@@ -1,9 +1,9 @@
-import os
 import logging
 import time
 import uuid
 from io import BytesIO
 from threading import Lock
+from typing import TypedDict
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from PIL import Image, UnidentifiedImageError
@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from api.inference import InferenceService, ModelNotAvailableError
-
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_IMAGE_PIXELS = 25_000_000
@@ -48,6 +47,14 @@ class PredictionJobResponse(BaseModel):
     stage: str
     message: str
     result: PredictionResponse | None = None
+
+
+class PredictionJob(TypedDict):
+    status: str
+    stage: str
+    message: str
+    result: PredictionResponse | None
+    updated_at: float
 
 
 JOB_MESSAGES = {
@@ -90,16 +97,20 @@ async def read_image(image: UploadFile) -> Image.Image:
             uploaded_image.load()
             return uploaded_image.convert("RGB")
     except UnidentifiedImageError as error:
-        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.") from error
+        raise HTTPException(
+            status_code=400, detail="Uploaded file is not a valid image."
+        ) from error
     except Image.DecompressionBombError as error:
         raise HTTPException(status_code=413, detail="Image dimensions are too large.") from error
     except OSError as error:
-        raise HTTPException(status_code=400, detail="Could not decode the uploaded image.") from error
+        raise HTTPException(
+            status_code=400, detail="Could not decode the uploaded image."
+        ) from error
 
 
-def create_app(inference_service=None):
-    service = inference_service or InferenceService()
-    jobs = {}
+def create_app(inference_service: InferenceService | None = None) -> FastAPI:
+    service = inference_service if inference_service is not None else InferenceService()
+    jobs: dict[str, PredictionJob] = {}
     jobs_lock = Lock()
     app = FastAPI(
         title="Adverse Weather Object Detection API",
@@ -110,7 +121,7 @@ def create_app(inference_service=None):
     app.state.prediction_jobs = jobs
 
     @app.get("/health")
-    def health():
+    def health() -> dict[str, str | bool]:
         return {
             "status": "ok",
             "model_loaded": service.is_loaded,
@@ -119,12 +130,12 @@ def create_app(inference_service=None):
 
     @app.post("/predict", response_model=PredictionResponse)
     async def predict(
-        image: UploadFile = File(...),
+        image: UploadFile = File(...),  # noqa: B008
         confidence: float = Query(default=0.05, ge=0.0, le=1.0),
         image_size: int = Query(default=512, ge=32, le=1280),
         use_tta: bool = Query(default=False, description="Enable test-time augmentation"),
         nms_iou: float = Query(default=0.7, ge=0.0, le=1.0, description="NMS IoU threshold"),
-    ):
+    ) -> PredictionResponse:
         input_image = await read_image(image)
 
         try:
@@ -148,17 +159,17 @@ def create_app(inference_service=None):
         return PredictionResponse(
             width=input_image.width,
             height=input_image.height,
-            detections=detections,
+            detections=[Detection(**detection) for detection in detections],
         )
 
     @app.post("/predict/jobs", response_model=PredictionJobResponse, status_code=202)
     async def create_prediction_job(
         background_tasks: BackgroundTasks,
-        image: UploadFile = File(...),
+        image: UploadFile = File(...),  # noqa: B008
         confidence: float = Query(default=0.05, ge=0.0, le=1.0),
         image_size: int = Query(default=512, ge=32, le=MAX_IMAGE_SIZE),
         use_tta: bool = Query(default=False),
-    ):
+    ) -> PredictionJobResponse:
         input_image = await read_image(image)
         now = time.monotonic()
         with jobs_lock:
@@ -190,18 +201,16 @@ def create_app(inference_service=None):
                 "updated_at": now,
             }
 
-        def update_stage(stage: str):
+        def update_stage(stage: str) -> None:
             with jobs_lock:
                 job = jobs.get(job_id)
                 if job is not None:
-                    job.update(
-                        status="processing",
-                        stage=stage,
-                        message=JOB_MESSAGES[stage],
-                        updated_at=time.monotonic(),
-                    )
+                    job["status"] = "processing"
+                    job["stage"] = stage
+                    job["message"] = JOB_MESSAGES[stage]
+                    job["updated_at"] = time.monotonic()
 
-        def run_prediction():
+        def run_prediction() -> None:
             try:
                 if use_tta:
                     from api.tta import tta_predict
@@ -226,16 +235,15 @@ def create_app(inference_service=None):
                 result = PredictionResponse(
                     width=input_image.width,
                     height=input_image.height,
-                    detections=detections,
+                    detections=[Detection(**detection) for detection in detections],
                 )
                 with jobs_lock:
-                    jobs[job_id].update(
-                        status="completed",
-                        stage="completed",
-                        message=JOB_MESSAGES["completed"],
-                        result=result,
-                        updated_at=time.monotonic(),
-                    )
+                    job = jobs[job_id]
+                    job["status"] = "completed"
+                    job["stage"] = "completed"
+                    job["message"] = JOB_MESSAGES["completed"]
+                    job["result"] = result
+                    job["updated_at"] = time.monotonic()
             except Exception as error:
                 logger.exception("Prediction job %s failed", job_id)
                 message = (
@@ -244,12 +252,11 @@ def create_app(inference_service=None):
                     else "Inference failed unexpectedly. Please try again."
                 )
                 with jobs_lock:
-                    jobs[job_id].update(
-                        status="failed",
-                        stage="failed",
-                        message=message or JOB_MESSAGES["failed"],
-                        updated_at=time.monotonic(),
-                    )
+                    job = jobs[job_id]
+                    job["status"] = "failed"
+                    job["stage"] = "failed"
+                    job["message"] = message or JOB_MESSAGES["failed"]
+                    job["updated_at"] = time.monotonic()
 
         background_tasks.add_task(run_prediction)
         return PredictionJobResponse(
@@ -260,12 +267,18 @@ def create_app(inference_service=None):
         )
 
     @app.get("/predict/jobs/{job_id}", response_model=PredictionJobResponse)
-    def get_prediction_job(job_id: str):
+    def get_prediction_job(job_id: str) -> PredictionJobResponse:
         with jobs_lock:
             job = jobs.get(job_id)
             if job is None:
                 raise HTTPException(status_code=404, detail="Prediction job not found or expired.")
-            return PredictionJobResponse(job_id=job_id, **job)
+            return PredictionJobResponse(
+                job_id=job_id,
+                status=job["status"],
+                stage=job["stage"],
+                message=job["message"],
+                result=job["result"],
+            )
 
     return app
 

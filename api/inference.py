@@ -1,11 +1,11 @@
 import os
+from collections.abc import Callable
 from pathlib import Path
 from threading import Lock
-from typing import Callable
+from typing import Any
 
-from PIL import Image
 import requests
-
+from PIL import Image
 
 DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "acdc-yolov8n-best.pt"
 MAX_MODEL_BYTES = 512 * 1024 * 1024
@@ -17,17 +17,20 @@ class ModelNotAvailableError(RuntimeError):
 
 
 class InferenceService:
-    def __init__(self, model_path=None):
-        self.model_path = Path(model_path or os.environ.get("MODEL_PATH", DEFAULT_MODEL_PATH))
-        self._model = None
+    def __init__(self, model_path: str | Path | None = None) -> None:
+        configured_path = model_path if model_path is not None else os.environ.get(
+            "MODEL_PATH", DEFAULT_MODEL_PATH
+        )
+        self.model_path = Path(configured_path)
+        self._model: Any | None = None
         self._model_lock = Lock()
         self._prediction_lock = Lock()
 
     @property
-    def is_loaded(self):
+    def is_loaded(self) -> bool:
         return self._model is not None
 
-    def _get_model(self, progress_callback: ProgressCallback | None = None):
+    def _get_model(self, progress_callback: ProgressCallback | None = None) -> Any:
         if self._model is not None:
             return self._model
         with self._model_lock:
@@ -47,7 +50,7 @@ class InferenceService:
                 ) from error
         return self._model
 
-    def _download_model(self, progress_callback: ProgressCallback | None = None):
+    def _download_model(self, progress_callback: ProgressCallback | None = None) -> None:
         model_url = os.environ.get("MODEL_URL")
         if not model_url:
             raise ModelNotAvailableError(
@@ -78,7 +81,8 @@ class InferenceService:
                         total_bytes += len(chunk)
                         if total_bytes > MAX_MODEL_BYTES:
                             raise ModelNotAvailableError(
-                                f"Model download exceeds the {MAX_MODEL_BYTES // (1024 * 1024)} MiB limit."
+                                "Model download exceeds the "
+                                f"{MAX_MODEL_BYTES // (1024 * 1024)} MiB limit."
                             )
                         checkpoint.write(chunk)
             if total_bytes == 0:
@@ -97,7 +101,7 @@ class InferenceService:
         confidence: float,
         image_size: int,
         progress_callback: ProgressCallback | None = None,
-    ):
+    ) -> list[dict[str, Any]]:
         model = self._get_model(progress_callback)
         if progress_callback:
             progress_callback("predicting")
@@ -130,7 +134,7 @@ class InferenceService:
 
     def predict_with_tta(
         self, image: Image.Image, confidence: float, image_size: int
-    ):
+    ) -> list[dict[str, Any]]:
         """Predict with test-time augmentation (multi-scale + flip)."""
         from api.tta import tta_predict
 
