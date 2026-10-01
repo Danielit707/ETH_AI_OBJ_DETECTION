@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = process.env.DETECTION_API_URL || "http://localhost:8000";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

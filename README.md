@@ -48,6 +48,41 @@ python -m pip install -r requirements-ui.txt
 python main.py
 ```
 
+## Deploy a public web app
+
+The recommended setup hosts the FastAPI inference service on Render and the
+Next.js frontend on Vercel. The model checkpoints in `models/` are local-only
+and are not committed to Git, so the API downloads its checkpoint from a
+private Hugging Face model repository on its first prediction.
+
+1. Create a **private model repository** on Hugging Face and upload
+   `models/acdc-yolov11n-best.pt`. Create a read token with access to that
+   repository. Keep the repository private and the token secret.
+2. In Render, choose **New > Blueprint**, connect this GitHub repository, and
+   deploy the `render.yaml` blueprint. It creates a Docker API service with a
+   persistent disk. The blueprint uses Render's paid Standard instance for
+   CPU inference; check Render's current pricing before deploying.
+3. In the Render service's environment settings, set:
+   - `MODEL_URL` to the Hugging Face file URL:
+     `https://huggingface.co/<account>/<private-repo>/resolve/main/acdc-yolov11n-best.pt`
+   - `MODEL_DOWNLOAD_TOKEN` to the Hugging Face read token.
+   - Keep `MODEL_PATH` as `/models/acdc-yolov11n-best.pt`.
+   Save and redeploy. On the first prediction, the service downloads the
+   checkpoint to its persistent disk.
+4. In Vercel, import this repository as a project and set its **Root
+   Directory** to `web`. Add the environment variable `DETECTION_API_URL` with
+   the Render API's service URL (for example, `https://your-api.onrender.com`),
+   then deploy or redeploy.
+5. Open the Vercel deployment URL, check that the API indicator is online, and
+   run a prediction. The first request may take longer while the model loads.
+   Vercel Functions limit request bodies to 4.5 MB, even though the API itself
+   accepts images up to 10 MiB. To process larger uploads, host the Next.js app
+   on a Node service (for example, Render) instead of routing uploads through
+   Vercel Functions.
+
+The ACDC dataset and trained weights are licensed for non-commercial use only.
+Ensure your deployment and use comply with [License.pdf](License.pdf).
+
 ## Project structure
 
 ```

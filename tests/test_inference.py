@@ -86,6 +86,41 @@ class TestLazyLoading:
         with pytest.raises(ModelNotAvailableError):
             service.predict(MagicMock(), confidence=0.25, image_size=512)
 
+    def test_missing_checkpoint_without_download_url_explains_setup(self, tmp_path):
+        service = InferenceService(model_path=tmp_path / "nonexistent.pt")
+        with patch.dict("os.environ", {}, clear=True), pytest.raises(
+            ModelNotAvailableError, match="configure MODEL_URL"
+        ):
+            service._get_model()
+
+    def test_downloads_model_using_configured_url_and_token(self, tmp_path):
+        service = InferenceService(model_path=tmp_path / "downloaded.pt")
+        response = MagicMock()
+        response.iter_content.return_value = [b"checkpoint-data", b""]
+        response.__enter__.return_value = response
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "MODEL_URL": "https://models.example/checkpoint.pt",
+                    "MODEL_DOWNLOAD_TOKEN": "read-token",
+                },
+            ),
+            patch("api.inference.requests.get", return_value=response) as get_mock,
+        ):
+            service._download_model()
+
+        assert get_mock.call_args.kwargs["headers"]["Authorization"] == "Bearer read-token"
+        assert service.model_path.read_bytes() == b"checkpoint-data"
+
+    def test_rejects_non_https_model_url(self, tmp_path):
+        service = InferenceService(model_path=tmp_path / "downloaded.pt")
+        with (
+            patch.dict("os.environ", {"MODEL_URL": "http://models.example/model.pt"}),
+            pytest.raises(ModelNotAvailableError, match="must use HTTPS"),
+        ):
+            service._download_model()
+
     def test_is_loaded_false_after_failed_load(self, tmp_path):
         missing_path = tmp_path / "nonexistent.pt"
         service = InferenceService(model_path=str(missing_path))

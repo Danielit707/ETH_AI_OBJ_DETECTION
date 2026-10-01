@@ -50,15 +50,10 @@ export default function DetectionApp() {
   useEffect(() => {
     const checkApi = async () => {
       try {
-        const res = await fetch("/api/detect", { method: "OPTIONS" });
-        setApiStatus(res.ok || res.status === 405 ? "online" : "offline");
+        const response = await fetch("/api/health", { cache: "no-store" });
+        setApiStatus(response.ok ? "online" : "offline");
       } catch {
-        try {
-          await fetch("http://localhost:8000/health", { signal: AbortSignal.timeout(2000) });
-          setApiStatus("online");
-        } catch {
-          setApiStatus("offline");
-        }
+        setApiStatus("offline");
       }
     };
     checkApi();

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: eth-ai-object-detection-api
+    runtime: docker
+    plan: standard
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    disk:
+      name: model-checkpoints
+      mountPath: /models
+      sizeGB: 1
+    envVars:
+      - key: MODEL_PATH
+        value: /models/acdc-yolov11n-best.pt
+      - key: MODEL_URL
+        sync: false
+      - key: MODEL_DOWNLOAD_TOKEN
+        sync: false

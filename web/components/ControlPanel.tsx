@@ -27,7 +27,7 @@ export default function ControlPanel({
   enabledClasses,
   onToggleClass,
 }: Props) {
-  const uniqueClasses = [...new Set(detections.map((d) => d.class_name))].sort();
+  const uniqueClasses = Array.from(new Set(detections.map((d) => d.class_name))).sort();
 
   return (
     <div className="rounded-xl bg-surface-light p-5">
